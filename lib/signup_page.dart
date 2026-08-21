@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'home_page.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -57,6 +58,13 @@ class _SignupPageState extends State<SignupPage> {
 await Future.delayed(const Duration(milliseconds: 500));
 
 if (!mounted) return;
+
+Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (context) => const HomePage(),
+  ),
+);
 
 
 
