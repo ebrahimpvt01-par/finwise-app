@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'signup_page.dart';
-import 'home_page.dart';
 import 'stock_prices_screen.dart';
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

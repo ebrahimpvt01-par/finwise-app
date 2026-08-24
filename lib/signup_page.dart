@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'home_page.dart';
+import 'stock_prices_screen.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -62,7 +62,7 @@ if (!mounted) return;
 Navigator.pushReplacement(
   context,
   MaterialPageRoute(
-    builder: (context) => const HomePage(),
+    builder: (context) => const StockPricesScreen(),
   ),
 );
 
