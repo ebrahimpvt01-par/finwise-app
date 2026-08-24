@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'signup_page.dart';
+import 'home_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,6 +15,64 @@ class _LoginPageState extends State<LoginPage> {
   final passwordController = TextEditingController();
 
   bool hidePassword = true;
+  bool isLoading = false;
+
+  Future<void> loginUser() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      showMessage("Please enter email and password");
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const HomePage(),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message = "Login failed";
+
+      if (e.code == 'user-not-found') {
+        message = "No account found with this email";
+      } else if (e.code == 'wrong-password' ||
+          e.code == 'invalid-credential') {
+        message = "Incorrect email or password";
+      } else if (e.code == 'invalid-email') {
+        message = "Please enter a valid email";
+      }
+
+      showMessage(message);
+    } catch (e) {
+      showMessage("Something went wrong. Please try again.");
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   void dispose() {
@@ -77,9 +137,9 @@ class _LoginPageState extends State<LoginPage> {
 
                   const SizedBox(height: 40),
 
-                  // EMAIL
                   TextField(
                     controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.email),
                       hintText: "Email",
@@ -91,7 +151,6 @@ class _LoginPageState extends State<LoginPage> {
 
                   const SizedBox(height: 20),
 
-                  // PASSWORD
                   TextField(
                     controller: passwordController,
                     obscureText: hidePassword,
@@ -132,7 +191,6 @@ class _LoginPageState extends State<LoginPage> {
 
                   const SizedBox(height: 15),
 
-                  // LOGIN BUTTON
                   SizedBox(
                     width: double.infinity,
                     height: 55,
@@ -144,26 +202,23 @@ class _LoginPageState extends State<LoginPage> {
                           borderRadius: BorderRadius.circular(15),
                         ),
                       ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Firebase Login Coming Soon"),
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        "LOGIN",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      onPressed: isLoading ? null : loginUser,
+                      child: isLoading
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                          : const Text(
+                              "LOGIN",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  // SIGN UP
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -171,7 +226,6 @@ class _LoginPageState extends State<LoginPage> {
                         "Don't have an account?",
                         style: TextStyle(fontSize: 16),
                       ),
-
                       TextButton(
                         onPressed: () {
                           Navigator.push(

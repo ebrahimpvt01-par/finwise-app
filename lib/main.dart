@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'firebase_options.dart';
 import 'stock_prices_screen.dart';
 import 'screens/home_page.dart';
+import 'screens/login_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
   runApp(const MyApp());
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -19,8 +24,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'FinWise Test',
+      debugShowCheckedModeBanner: false,
 
-      home: const HomePage(),
+      // Login page opens first
+      home: const LoginPage(),
     );
   }
 }
@@ -31,7 +38,9 @@ class TestScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Firestore Test')),
+      appBar: AppBar(
+        title: const Text('Firestore Test'),
+      ),
       body: Center(
         child: ElevatedButton(
           onPressed: () async {
@@ -39,8 +48,11 @@ class TestScreen extends StatelessWidget {
               'message': 'Hello from Flutter',
               'timestamp': DateTime.now(),
             });
+
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sent to Firestore!')),
+              const SnackBar(
+                content: Text('Sent to Firestore!'),
+              ),
             );
           },
           child: const Text('Send Test Data'),
