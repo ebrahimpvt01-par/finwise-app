@@ -9,10 +9,6 @@ cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# Curated list of common NSE large-caps. These are ALWAYS fetched, regardless
-# of whether anyone has invested in them yet - this is what powers the
-# dropdown in the Add Investment screen, so users have real choices to pick
-# from instead of a chicken-and-egg "ticker not recognized" problem.
 CURATED_WATCHLIST = [
     "RELIANCE", "TCS", "INFY", "WIPRO", "HCLTECH",
     "HDFCBANK", "ICICIBANK", "SBIN", "KOTAKBANK", "AXISBANK",
@@ -21,30 +17,15 @@ CURATED_WATCHLIST = [
     "SUNPHARMA", "TITAN", "ASIANPAINT", "BAJFINANCE",
 ]
 
-# Static ticker -> sector mapping, used for the diversification/concentration
-# recommendation rule.
 SECTOR_MAP = {
-    "RELIANCE": "Energy",
-    "TCS": "IT",
-    "INFY": "IT",
-    "WIPRO": "IT",
-    "HCLTECH": "IT",
-    "HDFCBANK": "Banking",
-    "ICICIBANK": "Banking",
-    "SBIN": "Banking",
-    "KOTAKBANK": "Banking",
-    "AXISBANK": "Banking",
-    "ITC": "FMCG",
-    "HINDUNILVR": "FMCG",
-    "NESTLEIND": "FMCG",
-    "BHARTIARTL": "Telecom",
-    "LT": "Infrastructure",
-    "MARUTI": "Automobile",
-    "TATAMOTORS": "Automobile",
-    "SUNPHARMA": "Pharma",
-    "TITAN": "Consumer Goods",
-    "ASIANPAINT": "Consumer Goods",
-    "BAJFINANCE": "Financial Services",
+    "RELIANCE": "Energy", "TCS": "IT", "INFY": "IT", "WIPRO": "IT", "HCLTECH": "IT",
+    "HDFCBANK": "Banking", "ICICIBANK": "Banking", "SBIN": "Banking",
+    "KOTAKBANK": "Banking", "AXISBANK": "Banking",
+    "ITC": "FMCG", "HINDUNILVR": "FMCG", "NESTLEIND": "FMCG",
+    "BHARTIARTL": "Telecom", "LT": "Infrastructure",
+    "MARUTI": "Automobile", "TATAMOTORS": "Automobile",
+    "SUNPHARMA": "Pharma", "TITAN": "Consumer Goods",
+    "ASIANPAINT": "Consumer Goods", "BAJFINANCE": "Financial Services",
 }
 
 
@@ -53,10 +34,6 @@ def get_sector(ticker):
 
 
 def get_watchlist():
-    """Combines the curated default list with any extra tickers users have
-    actually invested in (in case someone's investment isn't in the curated
-    list). This guarantees the dropdown always has good options AND real
-    investments always get their prices fetched."""
     investment_docs = db.collection("investments").stream()
     invested_tickers = set()
     for doc in investment_docs:
@@ -73,7 +50,6 @@ def get_watchlist():
 
 WATCHLIST = get_watchlist()
 
-# Try today, then step backwards day by day until we find a file that exists
 bhav_file = None
 used_date = None
 
@@ -95,20 +71,18 @@ with NSE(download_folder="./") as nse:
     else:
         df = pd.read_csv(bhav_file)
 
-        # NSE's new UDiFF format (since July 2024) uses different column names
-        # than the old format. Handle both, in case the library ever reverts.
         symbol_col = "TckrSymb" if "TckrSymb" in df.columns else "SYMBOL"
         close_col = "ClsPric" if "ClsPric" in df.columns else "CLOSE_PRICE"
         prev_close_col = "PrvsClsgPric" if "PrvsClsgPric" in df.columns else "PREV_CLOSE"
 
         print(f"Using columns: {symbol_col} / {close_col} / {prev_close_col}")
+        date_str = used_date.strftime("%Y-%m-%d")
 
         for ticker in WATCHLIST:
             row = df[df[symbol_col] == ticker]
             if not row.empty:
                 close_price = float(row.iloc[0][close_col])
 
-                # Daily % change, if the previous-close column is available
                 change_pct = None
                 if prev_close_col in df.columns:
                     try:
@@ -120,17 +94,26 @@ with NSE(download_folder="./") as nse:
 
                 sector = get_sector(ticker)
 
+                # --- Current price (overwritten daily -- used for live gain/loss) ---
                 doc_data = {
                     "ticker": ticker,
                     "price": close_price,
                     "sector": sector,
-                    "dataDate": used_date.strftime("%Y-%m-%d"),
+                    "dataDate": date_str,
                     "updatedAt": datetime.now(timezone.utc),
                 }
                 if change_pct is not None:
                     doc_data["changePct"] = round(change_pct, 2)
-
                 db.collection("stockPrices").document(ticker).set(doc_data)
+
+                # --- NEW: Historical record (never overwritten -- one doc per ticker per day) ---
+                history_id = f"{ticker}_{date_str}"
+                db.collection("priceHistory").document(history_id).set({
+                    "ticker": ticker,
+                    "price": close_price,
+                    "sector": sector,
+                    "date": date_str,
+                })
 
                 change_str = f", {change_pct:+.2f}%" if change_pct is not None else ""
                 print(f"Updated {ticker} ({sector}): Rs.{close_price}{change_str} "
