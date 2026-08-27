@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'add_investment_screen.dart';
 import 'my_investments_screen.dart';
 import 'portfolio_charts_screen.dart';
-
+import 'portfolio_growth_screen.dart';
 class StockPricesScreen extends StatelessWidget {
   const StockPricesScreen({super.key});
 
@@ -43,8 +43,19 @@ class StockPricesScreen extends StatelessWidget {
               );
             },
           ),
+         IconButton(
+  icon: const Icon(Icons.trending_up),
+  tooltip: 'Portfolio Growth',
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const PortfolioGrowthScreen()),
+    );
+  },
+), 
         ],
       ),
+
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('stockPrices').snapshots(),
         builder: (context, snapshot) {
