@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
   const AddInvestmentScreen({super.key});
@@ -25,8 +26,6 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   }
 
   Future<void> _loadStocks() async {
-    // Loaded ONCE per screen visit, then filtered locally as the user types --
-    // this keeps search instant with no network call per keystroke.
     final snap = await FirebaseFirestore.instance.collection('stockPrices').get();
     setState(() {
       _allStocks = snap.docs.map((d) => d.data()).toList();
@@ -55,6 +54,18 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
       return;
     }
 
+    // NEW: get the currently logged-in user. This should never be null here,
+    // since this screen is only reachable after login -- but we check anyway
+    // rather than assume, so a bug elsewhere fails loudly instead of silently
+    // saving data with no owner.
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You must be logged in to add an investment')),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     await FirebaseFirestore.instance.collection('investments').add({
@@ -63,7 +74,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
       'buyPrice': double.parse(_buyPriceController.text.trim()),
       'buyDate': _buyDate.toIso8601String(),
       'createdAt': DateTime.now(),
-      // 'userId': will be added once per-user data isolation is wired in
+      'userId': currentUser.uid, // NEW: ties this record to its owner
     });
 
     setState(() => _isSaving = false);
@@ -104,7 +115,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           final query = value.text.toUpperCase();
                           return _allStocks
                               .where((s) => (s['ticker'] as String).contains(query))
-                              .take(50); // cap results shown, avoids a huge scroll list
+                              .take(50);
                         },
                         onSelected: (option) {
                           setState(() => _selectedTicker = option['ticker'] as String);

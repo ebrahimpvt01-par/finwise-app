@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MyInvestmentsScreen extends StatelessWidget {
   const MyInvestmentsScreen({super.key});
@@ -86,7 +87,7 @@ class MyInvestmentsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('My Investments')),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('investments').snapshots(),
+        stream: FirebaseFirestore.instance.collection('investments').where('userId', isEqualTo: FirebaseAuth.instance.currentUser!.uid).snapshots(),
         builder: (context, investmentSnapshot) {
           if (investmentSnapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
