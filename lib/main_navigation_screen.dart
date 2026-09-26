@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'stock_prices_screen.dart';
 import 'profile_screen.dart';
+import 'my_insurance_screen.dart';
 import 'app_theme.dart';
-import 'profile_screen.dart';
 
 /// The main shell after login -- a bottom nav bar switching between the
-/// app's core sections. Insurance and Income are placeholders until
-/// Parth's screens are ready; swap the placeholder widgets for his real
-/// screens later, the nav bar itself won't need to change.
+/// app's core sections.
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -20,8 +18,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _screens = const [
     StockPricesScreen(),
-    _PlaceholderScreen(title: 'Insurance', icon: Icons.shield_outlined),
-    _PlaceholderScreen(title: 'Income', icon: Icons.account_balance_wallet_outlined),
+    MyInsuranceScreen(),
+    _PlaceholderScreen(
+      title: 'Income',
+      icon: Icons.account_balance_wallet_outlined,
+    ),
     ProfileScreen(),
   ];
 
@@ -65,7 +66,10 @@ class _PlaceholderScreen extends StatelessWidget {
   final String title;
   final IconData icon;
 
-  const _PlaceholderScreen({required this.title, required this.icon});
+  const _PlaceholderScreen({
+    required this.title,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -75,11 +79,18 @@ class _PlaceholderScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 64, color: AppColors.textMuted),
+            Icon(
+              icon,
+              size: 64,
+              color: AppColors.textMuted,
+            ),
             const SizedBox(height: 16),
             Text(
               '$title coming soon',
-              style: const TextStyle(fontSize: 16, color: AppColors.textMuted),
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.textMuted,
+              ),
             ),
           ],
         ),
