@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'signup_page.dart';
 import 'stock_prices_screen.dart';
+import 'forgot_password_screen.dart';
+import 'main_navigation_screen.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -40,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const StockPricesScreen(),
+          builder: (context) => const MainNavigationScreen(),
         ),
       );
     } on FirebaseAuthException catch (e) {
@@ -175,18 +178,17 @@ class _LoginPageState extends State<LoginPage> {
                   ),
 
                   Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Forgot Password Coming Soon"),
-                          ),
-                        );
-                      },
-                      child: const Text("Forgot Password?"),
-                    ),
-                  ),
+  alignment: Alignment.centerRight,
+  child: TextButton(
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+      );
+    },
+    child: const Text('Forgot Password?'),
+  ),
+),
 
                   const SizedBox(height: 15),
 

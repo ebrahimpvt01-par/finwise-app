@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class PortfolioGrowthScreen extends StatelessWidget {
   const PortfolioGrowthScreen({super.key});
@@ -14,7 +16,7 @@ class PortfolioGrowthScreen extends StatelessWidget {
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('investments').snapshots(),
+        stream: FirebaseFirestore.instance.collection('investments').where('userId', isEqualTo: FirebaseAuth.instance.currentUser!.uid).snapshots(),
         builder: (context, investmentSnapshot) {
           if (investmentSnapshot.hasError) {
             return Center(child: Text('Error: ${investmentSnapshot.error}'));
@@ -27,20 +29,46 @@ class PortfolioGrowthScreen extends StatelessWidget {
             return const Center(child: Text('No investments yet.'));
           }
 
-          // Total quantity held per ticker
-          final Map<String, double> quantityByTicker = {};
+          // Each ticker may have multiple buy "lots" (bought on different
+          // dates, possibly different quantities). We keep the individual
+          // lots so we can work out how many shares were actually held on
+          // any given historical date - not just the current total.
+          final Map<String, List<_Lot>> lotsByTicker = {};
+          String? earliestBuyDate;
           for (final doc in investmentDocs) {
             final data = doc.data() as Map<String, dynamic>;
             final ticker = (data['ticker'] ?? '').toString();
             final qty = (data['quantity'] as num?)?.toDouble() ?? 0;
-            quantityByTicker[ticker] = (quantityByTicker[ticker] ?? 0) + qty;
+            // buyDate may be stored as an ISO datetime string; keep just
+            // the date portion (yyyy-MM-dd) so it compares against the
+            // priceHistory date strings correctly.
+            final rawBuyDate = (data['buyDate'] ?? '').toString();
+            final buyDate = rawBuyDate.length >= 10 ? rawBuyDate.substring(0, 10) : rawBuyDate;
+            if (buyDate.isEmpty) continue;
+            lotsByTicker.putIfAbsent(ticker, () => []).add(_Lot(buyDate, qty));
+            if (earliestBuyDate == null || buyDate.compareTo(earliestBuyDate) < 0) {
+              earliestBuyDate = buyDate;
+            }
+          }
+
+          if (lotsByTicker.isEmpty || earliestBuyDate == null) {
+            return const Center(child: Text('No investments yet.'));
+          }
+
+          // Quantity of a ticker actually held on a given date - only
+          // counts lots bought on or before that date.
+          double heldQuantity(String ticker, String date) {
+            final lots = lotsByTicker[ticker];
+            if (lots == null) return 0;
+            double total = 0;
+            for (final lot in lots) {
+              if (lot.buyDate.compareTo(date) <= 0) total += lot.quantity;
+            }
+            return total;
           }
 
           return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('priceHistory')
-                .orderBy('date')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('investments').where('userId', isEqualTo: FirebaseAuth.instance.currentUser!.uid).snapshots(),
             builder: (context, historySnapshot) {
               if (historySnapshot.hasError) {
                 return Center(child: Text('Error: ${historySnapshot.error}'));
@@ -50,7 +78,8 @@ class PortfolioGrowthScreen extends StatelessWidget {
               }
               final historyDocs = historySnapshot.data?.docs ?? [];
 
-              // Sum portfolio value per date, across held tickers only
+              // Sum portfolio value per date, across held tickers only,
+              // and only counting shares actually owned by that date.
               final Map<String, double> valueByDate = {};
               // Also track per-ticker value by date, so we can draw a
               // separate line for each stock, not just the combined total.
@@ -58,10 +87,14 @@ class PortfolioGrowthScreen extends StatelessWidget {
               for (final doc in historyDocs) {
                 final data = doc.data() as Map<String, dynamic>;
                 final ticker = (data['ticker'] ?? '').toString();
-                if (!quantityByTicker.containsKey(ticker)) continue;
+                if (!lotsByTicker.containsKey(ticker)) continue;
                 final date = (data['date'] ?? '').toString();
+                // Skip any price data from before the earliest purchase
+                // overall - nothing was owned yet, so it isn't relevant.
+                if (date.compareTo(earliestBuyDate!) < 0) continue;
+                final qty = heldQuantity(ticker, date);
+                if (qty <= 0) continue; // not bought yet as of this date
                 final price = (data['price'] as num?)?.toDouble() ?? 0;
-                final qty = quantityByTicker[ticker] ?? 0;
                 final value = price * qty;
                 valueByDate[date] = (valueByDate[date] ?? 0) + value;
                 valueByTickerByDate.putIfAbsent(ticker, () => {});
@@ -626,4 +659,13 @@ class PortfolioGrowthScreen extends StatelessWidget {
     }
     return '₹${value.toStringAsFixed(0)}';
   }
+}
+
+/// A single purchase of a ticker: bought on [buyDate] (yyyy-MM-dd),
+/// for [quantity] shares. Used to work out how many shares of a stock
+/// were actually held as of any given historical date.
+class _Lot {
+  final String buyDate;
+  final double quantity;
+  const _Lot(this.buyDate, this.quantity);
 }
