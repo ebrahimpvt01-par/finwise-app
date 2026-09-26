@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class PortfolioChartsScreen extends StatelessWidget {
   const PortfolioChartsScreen({super.key});
@@ -10,7 +12,7 @@ class PortfolioChartsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Portfolio Overview')),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('investments').snapshots(),
+        stream: FirebaseFirestore.instance.collection('investments').where('userId', isEqualTo: FirebaseAuth.instance.currentUser!.uid).snapshots(),
         builder: (context, investmentSnapshot) {
           if (investmentSnapshot.hasError) {
             return Center(child: Text('Error: ${investmentSnapshot.error}'));

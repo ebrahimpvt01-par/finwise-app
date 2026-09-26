@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class PortfolioGrowthScreen extends StatelessWidget {
   const PortfolioGrowthScreen({super.key});
@@ -14,7 +16,7 @@ class PortfolioGrowthScreen extends StatelessWidget {
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('investments').snapshots(),
+        stream: FirebaseFirestore.instance.collection('investments').where('userId', isEqualTo: FirebaseAuth.instance.currentUser!.uid).snapshots(),
         builder: (context, investmentSnapshot) {
           if (investmentSnapshot.hasError) {
             return Center(child: Text('Error: ${investmentSnapshot.error}'));
@@ -66,10 +68,7 @@ class PortfolioGrowthScreen extends StatelessWidget {
           }
 
           return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('priceHistory')
-                .orderBy('date')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('investments').where('userId', isEqualTo: FirebaseAuth.instance.currentUser!.uid).snapshots(),
             builder: (context, historySnapshot) {
               if (historySnapshot.hasError) {
                 return Center(child: Text('Error: ${historySnapshot.error}'));
