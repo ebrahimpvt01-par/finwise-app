@@ -68,7 +68,7 @@ class PortfolioGrowthScreen extends StatelessWidget {
           }
 
           return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('investments').where('userId', isEqualTo: FirebaseAuth.instance.currentUser!.uid).snapshots(),
+            stream: FirebaseFirestore.instance.collection('priceHistory').snapshots(),
             builder: (context, historySnapshot) {
               if (historySnapshot.hasError) {
                 return Center(child: Text('Error: ${historySnapshot.error}'));
