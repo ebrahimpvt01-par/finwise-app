@@ -26,7 +26,6 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
 
   String _formatCurrency(dynamic value) {
     final amount = (value as num?)?.toDouble() ?? 0;
-
     return '₹${amount.toStringAsFixed(0)}';
   }
 
@@ -205,9 +204,10 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       DropdownButtonFormField<String>(
-                        initialValue: insuranceTypes.contains(selectedType)
-                            ? selectedType
-                            : null,
+                        initialValue:
+                            insuranceTypes.contains(selectedType)
+                                ? selectedType
+                                : null,
                         decoration: const InputDecoration(
                           labelText: 'Insurance Type',
                           border: OutlineInputBorder(),
@@ -572,7 +572,9 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
     if (user == null) {
       return const Scaffold(
         body: Center(
-          child: Text('Please log in to view your insurance policies.'),
+          child: Text(
+            'Please log in to view your insurance policies.',
+          ),
         ),
       );
     }
@@ -592,19 +594,21 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
       appBar: AppBar(
         title: const Text('My Insurance Policies'),
       ),
+
+      // FIXED: The + button now opens Add Insurance.
       floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const AddInsuranceScreen(),
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
+  backgroundColor: AppColors.primary,
+  foregroundColor: Colors.white,
+  onPressed: () {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AddInsuranceScreen(),
       ),
+    );
+  },
+  child: const Icon(Icons.add),
+),
+
       body: Column(
         children: [
           Padding(
@@ -618,7 +622,8 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Coverage Check',
@@ -628,14 +633,18 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                         color: AppColors.textDark,
                       ),
                     ),
+
                     const SizedBox(height: 6),
+
                     Text(
                       'Enter your annual income to check if your insurance coverage may be low.',
                       style: TextStyle(
                         color: AppColors.textMuted,
                       ),
                     ),
+
                     const SizedBox(height: 12),
+
                     Row(
                       children: [
                         Expanded(
@@ -645,7 +654,8 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                                 const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
-                            decoration: const InputDecoration(
+                            decoration:
+                                const InputDecoration(
                               labelText: 'Annual Income',
                               prefixText: '₹ ',
                               border: OutlineInputBorder(),
@@ -655,7 +665,9 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                             },
                           ),
                         ),
+
                         const SizedBox(width: 10),
+
                         SizedBox(
                           height: 52,
                           child: ElevatedButton(
@@ -665,6 +677,7 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                         ),
                       ],
                     ),
+
                     if (_annualIncome != null) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -712,14 +725,17 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.shield_outlined,
                             size: 64,
                             color: AppColors.textMuted,
                           ),
+
                           const SizedBox(height: 16),
+
                           Text(
                             'No insurance policies yet',
                             style: TextStyle(
@@ -728,7 +744,9 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                               color: AppColors.textDark,
                             ),
                           ),
+
                           const SizedBox(height: 8),
+
                           Text(
                             'Tap + to add your first insurance policy.',
                             textAlign: TextAlign.center,
