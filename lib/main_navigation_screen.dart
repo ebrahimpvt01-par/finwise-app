@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'stock_prices_screen.dart';
-import 'profile_screen.dart';
-import 'my_insurance_screen.dart';
 import 'app_theme.dart';
+import 'my_income_expenses_screen.dart';
+import 'my_insurance_screen.dart';
+import 'profile_screen.dart';
+import 'stock_prices_screen.dart';
 
-/// The main shell after login -- a bottom nav bar switching between the
-/// app's core sections.
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -19,10 +18,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = const [
     StockPricesScreen(),
     MyInsuranceScreen(),
-    _PlaceholderScreen(
-      title: 'Income',
-      icon: Icons.account_balance_wallet_outlined,
-    ),
+    MyIncomeExpensesScreen(),
     ProfileScreen(),
   ];
 
@@ -35,7 +31,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
         selectedItemColor: AppColors.accent,
         unselectedItemColor: AppColors.textMuted,
         type: BottomNavigationBarType.fixed,
@@ -62,39 +62,3 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _PlaceholderScreen({
-    required this.title,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 64,
-              color: AppColors.textMuted,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '$title coming soon',
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
