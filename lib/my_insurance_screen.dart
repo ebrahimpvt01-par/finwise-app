@@ -9,21 +9,11 @@ class MyInsuranceScreen extends StatefulWidget {
   const MyInsuranceScreen({super.key});
 
   @override
-  State<MyInsuranceScreen> createState() => _MyInsuranceScreenState();
+  State<MyInsuranceScreen> createState() =>
+      _MyInsuranceScreenState();
 }
 
 class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
-  final TextEditingController _incomeController =
-      TextEditingController();
-
-  double? _annualIncome;
-
-  @override
-  void dispose() {
-    _incomeController.dispose();
-    super.dispose();
-  }
-
   String _formatCurrency(dynamic value) {
     final amount = (value as num?)?.toDouble() ?? 0;
     return '₹${amount.toStringAsFixed(0)}';
@@ -45,35 +35,23 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
     }
   }
 
-  void _updateIncome() {
-    final income = double.tryParse(
-      _incomeController.text.trim(),
-    );
-
-    if (income == null || income <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid annual income'),
-        ),
-      );
-      return;
+  bool _isCoverageLow(
+    dynamic sumAssured,
+    String type,
+    double annualIncome,
+  ) {
+    // Coverage check is only for Term and Life insurance.
+    if (type != 'Term' && type != 'Life') {
+      return false;
     }
 
-    setState(() {
-      _annualIncome = income;
-    });
-
-    FocusScope.of(context).unfocus();
-  }
-
-  bool _isCoverageLow(dynamic sumAssured) {
-    if (_annualIncome == null) {
+    if (annualIncome <= 0) {
       return false;
     }
 
     final amount = (sumAssured as num?)?.toDouble() ?? 0;
 
-    return amount < (_annualIncome! * 10);
+    return amount < (annualIncome * 10);
   }
 
   Future<void> _deletePolicy(
@@ -142,6 +120,10 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
   ) async {
     final data = document.data() as Map<String, dynamic>;
 
+    final providerController = TextEditingController(
+      text: data['provider']?.toString() ?? '',
+    );
+
     final sumAssuredController = TextEditingController(
       text: ((data['sumAssured'] as num?) ?? 0).toString(),
     );
@@ -203,6 +185,27 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      TextFormField(
+                        controller: providerController,
+                        decoration: const InputDecoration(
+                          labelText: 'Insurance Provider',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(
+                            Icons.business_outlined,
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null ||
+                              value.trim().isEmpty) {
+                            return 'Please enter insurance provider';
+                          }
+
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
                       DropdownButtonFormField<String>(
                         initialValue:
                             insuranceTypes.contains(selectedType)
@@ -250,7 +253,7 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                               double.tryParse(value?.trim() ?? '');
 
                           if (amount == null || amount <= 0) {
-                            return 'Enter a valid amount';
+                            return 'Enter a valid amount greater than 0';
                           }
 
                           return null;
@@ -275,7 +278,7 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                               double.tryParse(value?.trim() ?? '');
 
                           if (amount == null || amount <= 0) {
-                            return 'Enter a valid amount';
+                            return 'Enter a valid amount greater than 0';
                           }
 
                           return null;
@@ -340,6 +343,8 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
 
                     try {
                       await document.reference.update({
+                        'provider':
+                            providerController.text.trim(),
                         'type': selectedType,
                         'sumAssured': double.parse(
                           sumAssuredController.text.trim(),
@@ -383,6 +388,7 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
       },
     );
 
+    providerController.dispose();
     sumAssuredController.dispose();
     premiumController.dispose();
   }
@@ -390,15 +396,25 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
   Widget _buildPolicyCard(
     BuildContext context,
     DocumentSnapshot document,
+    double annualIncome,
   ) {
     final data = document.data() as Map<String, dynamic>;
 
     final type = data['type']?.toString() ?? 'Unknown';
+
+    final provider = data['provider']?.toString().trim().isNotEmpty == true
+        ? data['provider'].toString()
+        : 'Provider not specified';
+
     final sumAssured = data['sumAssured'];
     final premium = data['premium'];
     final dueDate = data['dueDate'];
 
-    final coverageLow = _isCoverageLow(sumAssured);
+    final coverageLow = _isCoverageLow(
+      sumAssured,
+      type,
+      annualIncome,
+    );
 
     return Dismissible(
       key: ValueKey(document.id),
@@ -459,7 +475,16 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 10),
+                Text(
+                  provider,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
 
                 Row(
                   children: [
@@ -590,195 +615,264 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
           descending: true,
         );
 
+    final incomeQuery = FirebaseFirestore.instance
+        .collection('income')
+        .where(
+          'userId',
+          isEqualTo: user.uid,
+        );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Insurance Policies'),
       ),
 
-      // FIXED: The + button now opens Add Insurance.
       floatingActionButton: FloatingActionButton(
-  backgroundColor: AppColors.primary,
-  foregroundColor: Colors.white,
-  onPressed: () {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const AddInsuranceScreen(),
-      ),
-    );
-  },
-  child: const Icon(Icons.add),
-),
-
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              8,
+        heroTag: 'insurance_fab',
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const AddInsuranceScreen(),
             ),
-            child: Card(
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
+
+      body: StreamBuilder<
+          QuerySnapshot<Map<String, dynamic>>>(
+        stream: incomeQuery.snapshots(),
+        builder: (context, incomeSnapshot) {
+          if (incomeSnapshot.hasError) {
+            return Center(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Coverage Check',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    Text(
-                      'Enter your annual income to check if your insurance coverage may be low.',
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _incomeController,
-                            keyboardType:
-                                const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration:
-                                const InputDecoration(
-                              labelText: 'Annual Income',
-                              prefixText: '₹ ',
-                              border: OutlineInputBorder(),
-                            ),
-                            onSubmitted: (_) {
-                              _updateIncome();
-                            },
-                          ),
-                        ),
-
-                        const SizedBox(width: 10),
-
-                        SizedBox(
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: _updateIncome,
-                            child: const Text('Check'),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    if (_annualIncome != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Reference coverage: ${_formatCurrency(_annualIncome! * 10)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ],
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'Unable to load income data.\n\n'
+                  '${incomeSnapshot.error}',
+                  textAlign: TextAlign.center,
                 ),
               ),
-            ),
-          ),
+            );
+          }
 
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: insuranceQuery.snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(
-                        'Unable to load insurance policies.\n\n'
-                        '${snapshot.error}',
-                        textAlign: TextAlign.center,
-                      ),
+          if (incomeSnapshot.connectionState ==
+              ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          // Calculate income for the current calendar year.
+          final currentYear = DateTime.now().year;
+
+          double annualIncome = 0;
+
+          final incomeDocuments =
+              incomeSnapshot.data?.docs ?? [];
+
+          for (final document in incomeDocuments) {
+            final data = document.data();
+
+            final type =
+                data['type']?.toString() ?? '';
+
+            final amount =
+                (data['amount'] as num?)?.toDouble() ?? 0;
+
+            final dateString =
+                data['date']?.toString() ?? '';
+
+            final date = DateTime.tryParse(dateString);
+
+            if (type == 'Income' &&
+                date != null &&
+                date.year == currentYear) {
+              annualIncome += amount;
+            }
+          }
+
+          return StreamBuilder<
+              QuerySnapshot<Map<String, dynamic>>>(
+            stream: insuranceQuery.snapshots(),
+            builder: (context, insuranceSnapshot) {
+              if (insuranceSnapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      'Unable to load insurance policies.\n\n'
+                      '${insuranceSnapshot.error}',
+                      textAlign: TextAlign.center,
                     ),
-                  );
-                }
-
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                final policies = snapshot.data?.docs ?? [];
-
-                if (policies.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisAlignment:
-                            MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.shield_outlined,
-                            size: 64,
-                            color: AppColors.textMuted,
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          Text(
-                            'No insurance policies yet',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          Text(
-                            'Tap + to add your first insurance policy.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(
-                    16,
-                    8,
-                    16,
-                    90,
                   ),
-                  itemCount: policies.length,
-                  itemBuilder: (context, index) {
-                    return _buildPolicyCard(
-                      context,
-                      policies[index],
-                    );
-                  },
                 );
-              },
-            ),
-          ),
-        ],
+              }
+
+              if (insuranceSnapshot.connectionState ==
+                  ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
+
+              final policies =
+                  insuranceSnapshot.data?.docs ?? [];
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      16,
+                      16,
+                      16,
+                      8,
+                    ),
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Coverage Check',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+
+                            const SizedBox(height: 6),
+
+                            Text(
+                              'Based on your recorded income for $currentYear.',
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+
+                            const SizedBox(height: 14),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _infoItem(
+                                    'Annual Income',
+                                    _formatCurrency(
+                                      annualIncome,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _infoItem(
+                                    'Reference Coverage',
+                                    _formatCurrency(
+                                      annualIncome * 10,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            Text(
+                              'Coverage check applies only to Term and Life insurance.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+
+                            if (annualIncome <= 0) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Add an income transaction for $currentYear to enable the coverage check.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.warning,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  Expanded(
+                    child: policies.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.shield_outlined,
+                                    size: 64,
+                                    color:
+                                        AppColors.textMuted,
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  Text(
+                                    'No insurance policies added yet',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight:
+                                          FontWeight.bold,
+                                      color:
+                                          AppColors.textDark,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 8),
+
+                                  Text(
+                                    'Tap + to add your first insurance policy.',
+                                    textAlign:
+                                        TextAlign.center,
+                                    style: TextStyle(
+                                      color:
+                                          AppColors.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding:
+                                const EdgeInsets.fromLTRB(
+                              16,
+                              8,
+                              16,
+                              90,
+                            ),
+                            itemCount: policies.length,
+                            itemBuilder:
+                                (context, index) {
+                              return _buildPolicyCard(
+                                context,
+                                policies[index],
+                                annualIncome,
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }

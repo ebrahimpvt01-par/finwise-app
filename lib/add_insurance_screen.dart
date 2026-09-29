@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +14,9 @@ class AddInsuranceScreen extends StatefulWidget {
 
 class _AddInsuranceScreenState extends State<AddInsuranceScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _providerController =
+      TextEditingController();
 
   final TextEditingController _sumAssuredController =
       TextEditingController();
@@ -35,6 +37,7 @@ class _AddInsuranceScreenState extends State<AddInsuranceScreen> {
 
   @override
   void dispose() {
+    _providerController.dispose();
     _sumAssuredController.dispose();
     _premiumController.dispose();
     super.dispose();
@@ -100,6 +103,7 @@ class _AddInsuranceScreenState extends State<AddInsuranceScreen> {
       await FirebaseFirestore.instance
           .collection('insurance')
           .add({
+        'provider': _providerController.text.trim(),
         'type': _selectedType,
         'sumAssured': double.parse(
           _sumAssuredController.text.trim(),
@@ -189,6 +193,29 @@ class _AddInsuranceScreenState extends State<AddInsuranceScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please select insurance type';
                   }
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _providerController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Insurance Provider',
+                  hintText: 'e.g. LIC, HDFC Life, Star Health',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(
+                    Icons.business_outlined,
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter insurance provider';
+                  }
+
                   return null;
                 },
               ),
@@ -215,7 +242,7 @@ class _AddInsuranceScreenState extends State<AddInsuranceScreen> {
                   );
 
                   if (amount == null || amount <= 0) {
-                    return 'Please enter a valid sum assured';
+                    return 'Please enter a valid positive sum assured';
                   }
 
                   return null;
@@ -244,7 +271,7 @@ class _AddInsuranceScreenState extends State<AddInsuranceScreen> {
                   );
 
                   if (amount == null || amount <= 0) {
-                    return 'Please enter a valid premium';
+                    return 'Please enter a valid positive premium';
                   }
 
                   return null;
@@ -316,6 +343,5 @@ class _AddInsuranceScreenState extends State<AddInsuranceScreen> {
     );
   }
 }
-
 
 
