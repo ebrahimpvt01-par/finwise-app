@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'stock_prices_screen.dart';
+import 'fcm_token_service.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -50,6 +51,7 @@ class _SignupPageState extends State<SignupPage> {
         email: email,
         password: password,
       );
+       FcmTokenService.register();
 
       if (!mounted) return;
 

@@ -4,6 +4,7 @@ import 'signup_page.dart';
 import 'stock_prices_screen.dart';
 import 'forgot_password_screen.dart';
 import 'main_navigation_screen.dart';
+import 'fcm_token_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -37,6 +38,7 @@ class _LoginPageState extends State<LoginPage> {
         email: email,
         password: password,
       );
+      FcmTokenService.register();
 
       if (!mounted) return;
 
