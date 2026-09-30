@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'stock_prices_screen.dart';
+import 'main_navigation_screen.dart';
 import 'fcm_token_service.dart';
 
 class SignupPage extends StatefulWidget {
@@ -64,7 +64,7 @@ if (!mounted) return;
 Navigator.pushReplacement(
   context,
   MaterialPageRoute(
-    builder: (context) => const StockPricesScreen(),
+    builder: (context) => const MainNavigationScreen(),
   ),
 );
 
