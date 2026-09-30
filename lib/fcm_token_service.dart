@@ -1,26 +1,21 @@
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
-/// Saves this device's FCM token under the logged-in user:
-///   users/{uid}/fcmTokens/{token}
+/// Tags this device's FCM token with the logged-in user's id.
 ///
-/// One document per device, so a user with two phones gets reminders on both,
-/// and each token is tied to a user id.
+/// Uses the SAME collection as NotificationService: fcmTokens/{token}.
+/// NotificationService.init() saves the bare token at app start (no user
+/// yet). After login/signup, register() adds `userId` to that document, so
+/// server jobs can find a user's devices with:
+///   fcmTokens where userId == <uid>
 class FcmTokenService {
-  static StreamSubscription<String>? _refreshSub;
+  static final CollectionReference<Map<String, dynamic>> _tokens =
+      FirebaseFirestore.instance.collection('fcmTokens');
 
-  static CollectionReference<Map<String, dynamic>> _tokens(String uid) {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('fcmTokens');
-  }
+  static bool _listening = false;
 
-  /// Call after a successful login, and on app start if a user is already
-  /// signed in.
+  /// Call right after a successful login or signup.
   static Future<void> register() async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -29,57 +24,56 @@ class FcmTokenService {
     }
 
     try {
-      final messaging = FirebaseMessaging.instance;
-
-      // Needed on Android 13+ so notifications can be shown.
-      await messaging.requestPermission();
-
-      final token = await messaging.getToken();
+      final token = await FirebaseMessaging.instance.getToken();
 
       if (token != null) {
-        await _tokens(user.uid).doc(token).set({
-          'token': token,
-          'platform': 'android',
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        await _tokens.doc(token).set(
+          {
+            'token': token,
+            'userId': user.uid,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
       }
 
-      // FCM can rotate the token; keep Firestore in sync.
-      await _refreshSub?.cancel();
+      // If FCM rotates the token, tag the new one too.
+      if (!_listening) {
+        _listening = true;
 
-      _refreshSub = messaging.onTokenRefresh.listen((newToken) async {
-        final currentUser = FirebaseAuth.instance.currentUser;
+        FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+          final current = FirebaseAuth.instance.currentUser;
 
-        if (currentUser == null) {
-          return;
-        }
+          if (current == null) {
+            return;
+          }
 
-        await _tokens(currentUser.uid).doc(newToken).set({
-          'token': newToken,
-          'platform': 'android',
-          'updatedAt': FieldValue.serverTimestamp(),
+          await _tokens.doc(newToken).set(
+            {
+              'token': newToken,
+              'userId': current.uid,
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
         });
-      });
+      }
     } catch (_) {
       // Never let a notification problem break login.
     }
   }
 
-  /// Call BEFORE FirebaseAuth.instance.signOut(), so the next person who
-  /// logs in on this phone does not inherit the previous user's reminders.
+  /// Call BEFORE FirebaseAuth.instance.signOut(). Removes this device's
+  /// token so a logged-out phone stops receiving the previous user's alerts.
   static Future<void> unregister() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
       final token = await FirebaseMessaging.instance.getToken();
 
-      if (user != null && token != null) {
-        await _tokens(user.uid).doc(token).delete();
+      if (token != null) {
+        await _tokens.doc(token).delete();
       }
-
-      await _refreshSub?.cancel();
-      _refreshSub = null;
     } catch (_) {
-      // Ignore: logout must always succeed.
+      // Logout must always succeed.
     }
   }
 }

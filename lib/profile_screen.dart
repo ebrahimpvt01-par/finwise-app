@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'app_theme.dart';
 import 'login_page.dart';
+import 'fcm_token_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   Future<void> _logout(BuildContext context) async {
+     await FcmTokenService.unregister(); 
     await FirebaseAuth.instance.signOut();
     if (context.mounted) {
       // Clear the whole navigation stack so "back" can't return to a
