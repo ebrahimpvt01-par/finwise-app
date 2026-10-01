@@ -3,6 +3,7 @@ import 'app_theme.dart';
 import 'my_income_expenses_screen.dart';
 import 'my_insurance_screen.dart';
 import 'profile_screen.dart';
+import 'recommendations_screen.dart';
 import 'stock_prices_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     StockPricesScreen(),
     MyInsuranceScreen(),
     MyIncomeExpensesScreen(),
+    RecommendationsScreen(),
     ProfileScreen(),
   ];
 
@@ -53,6 +55,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             label: 'Income',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.lightbulb_outline),
+            label: 'Advice',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.account_circle),
             label: 'Profile',
           ),
@@ -61,4 +67,3 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 }
-
