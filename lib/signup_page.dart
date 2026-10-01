@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main_navigation_screen.dart';
 import 'fcm_token_service.dart';
+import 'validators.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -37,8 +38,9 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
-    if (password.length < 6) {
-      showMessage("Password must be at least 6 characters");
+    final passwordError = validatePassword(password);
+    if (passwordError != null) {
+      showMessage(passwordError);
       return;
     }
 
@@ -51,26 +53,22 @@ class _SignupPageState extends State<SignupPage> {
         email: email,
         password: password,
       );
-       FcmTokenService.register();
+      FcmTokenService.register();
 
       if (!mounted) return;
 
       showMessage("Account created successfully!");
 
-await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 500));
 
-if (!mounted) return;
+      if (!mounted) return;
 
-Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (context) => const MainNavigationScreen(),
-  ),
-);
-
-
-
-      // We will add Home Page navigation here next.
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const MainNavigationScreen(),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
       String message = "Something went wrong";
 
@@ -146,6 +144,8 @@ Navigator.pushReplacement(
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: "Password",
+                  helperText:
+                      "Min 8 characters, 1 capital letter, 1 special character",
                   border: OutlineInputBorder(),
                 ),
               ),
