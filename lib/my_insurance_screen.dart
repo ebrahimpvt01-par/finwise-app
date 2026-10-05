@@ -1,9 +1,278 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'add_insurance_screen.dart';
 import 'app_theme.dart';
+
+String _formatDateValue(dynamic value) {
+  if (value == null) {
+    return 'Not available';
+  }
+
+  try {
+    final date = DateTime.parse(value.toString());
+
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
+  } catch (_) {
+    return value.toString();
+  }
+}
+
+/// Edit dialog as its own widget so it owns (and safely disposes) its
+/// controllers. It does NOT touch Firestore: it returns the new values to
+/// the caller, which saves them after the dialog has fully closed.
+class _EditPolicyDialog extends StatefulWidget {
+  final String initialProvider;
+  final String? initialType;
+  final num initialSumAssured;
+  final num initialPremium;
+  final DateTime? initialDate;
+
+  const _EditPolicyDialog({
+    required this.initialProvider,
+    required this.initialType,
+    required this.initialSumAssured,
+    required this.initialPremium,
+    required this.initialDate,
+  });
+
+  @override
+  State<_EditPolicyDialog> createState() => _EditPolicyDialogState();
+}
+
+class _EditPolicyDialogState extends State<_EditPolicyDialog> {
+  final _formKey = GlobalKey<FormState>();
+
+  late final TextEditingController _providerController;
+  late final TextEditingController _sumAssuredController;
+  late final TextEditingController _premiumController;
+
+  static const List<String> _insuranceTypes = [
+    'Term',
+    'Health',
+    'Vehicle',
+    'Life',
+  ];
+
+  String? _selectedType;
+  DateTime? _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _providerController = TextEditingController(
+      text: widget.initialProvider,
+    );
+    _sumAssuredController = TextEditingController(
+      text: widget.initialSumAssured.toString(),
+    );
+    _premiumController = TextEditingController(
+      text: widget.initialPremium.toString(),
+    );
+    _selectedType = widget.initialType;
+    _selectedDate = widget.initialDate;
+  }
+
+  @override
+  void dispose() {
+    _providerController.dispose();
+    _sumAssuredController.dispose();
+    _premiumController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final initial = _selectedDate ?? today;
+
+    // If the saved renewal date is already in the past, firstDate must not
+    // be later than initialDate or showDatePicker asserts.
+    final firstDate = initial.isBefore(today) ? initial : today;
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: firstDate,
+      lastDate: DateTime(now.year + 50),
+    );
+
+    if (pickedDate != null && mounted) {
+      setState(() {
+        _selectedDate = pickedDate;
+      });
+    }
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select the renewal date'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pop(context, <String, dynamic>{
+      'provider': _providerController.text.trim(),
+      'type': _selectedType,
+      'sumAssured': double.parse(_sumAssuredController.text.trim()),
+      'premium': double.parse(_premiumController.text.trim()),
+      'dueDate': _selectedDate!.toIso8601String(),
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Insurance Policy'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _providerController,
+                decoration: const InputDecoration(
+                  labelText: 'Insurance Provider',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(
+                    Icons.business_outlined,
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter insurance provider';
+                  }
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String>(
+                initialValue: _insuranceTypes.contains(_selectedType)
+                    ? _selectedType
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Insurance Type',
+                  border: OutlineInputBorder(),
+                ),
+                items: _insuranceTypes.map((type) {
+                  return DropdownMenuItem<String>(
+                    value: type,
+                    child: Text(type),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedType = value;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Select type';
+                  }
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _sumAssuredController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Sum Assured',
+                  prefixText: '₹ ',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  final amount = double.tryParse(value?.trim() ?? '');
+
+                  if (amount == null || amount <= 0) {
+                    return 'Enter a valid amount greater than 0';
+                  }
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _premiumController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Premium',
+                  prefixText: '₹ ',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  final amount = double.tryParse(value?.trim() ?? '');
+
+                  if (amount == null || amount <= 0) {
+                    return 'Enter a valid amount greater than 0';
+                  }
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              InkWell(
+                onTap: _selectDate,
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Policy Renewal Date',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.calendar_today),
+                  ),
+                  child: Text(
+                    _selectedDate == null
+                        ? 'Select renewal date'
+                        : _formatDateValue(
+                            _selectedDate!.toIso8601String(),
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _save,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
 
 class MyInsuranceScreen extends StatefulWidget {
   const MyInsuranceScreen({super.key});
@@ -19,21 +288,7 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
     return '₹${amount.toStringAsFixed(0)}';
   }
 
-  String _formatDate(dynamic value) {
-    if (value == null) {
-      return 'Not available';
-    }
-
-    try {
-      final date = DateTime.parse(value.toString());
-
-      return '${date.day.toString().padLeft(2, '0')}/'
-          '${date.month.toString().padLeft(2, '0')}/'
-          '${date.year}';
-    } catch (_) {
-      return value.toString();
-    }
-  }
+  String _formatDate(dynamic value) => _formatDateValue(value);
 
   bool _isCoverageLow(
     dynamic sumAssured,
@@ -98,7 +353,7 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(this.context).showSnackBar(
         const SnackBar(
           content: Text('Insurance policy deleted'),
         ),
@@ -106,7 +361,7 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(this.context).showSnackBar(
         SnackBar(
           content: Text('Failed to delete policy: $e'),
         ),
@@ -114,283 +369,62 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
     }
   }
 
-  Future<void> _showEditDialog(
-    BuildContext context,
-    DocumentSnapshot document,
-  ) async {
+  Future<void> _showEditDialog(DocumentSnapshot document) async {
     final data = document.data() as Map<String, dynamic>;
 
-    final providerController = TextEditingController(
-      text: data['provider']?.toString() ?? '',
-    );
-
-    final sumAssuredController = TextEditingController(
-      text: ((data['sumAssured'] as num?) ?? 0).toString(),
-    );
-
-    final premiumController = TextEditingController(
-      text: ((data['premium'] as num?) ?? 0).toString(),
-    );
-
-    String? selectedType = data['type']?.toString();
-
-    DateTime? selectedDate;
+    DateTime? initialDate;
 
     try {
       if (data['dueDate'] != null) {
-        selectedDate = DateTime.parse(
-          data['dueDate'].toString(),
-        );
+        initialDate = DateTime.parse(data['dueDate'].toString());
       }
     } catch (_) {
-      selectedDate = null;
+      initialDate = null;
     }
 
-    final insuranceTypes = [
-      'Term',
-      'Health',
-      'Vehicle',
-      'Life',
-    ];
-
-    final formKey = GlobalKey<FormState>();
-
-    await showDialog<void>(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> selectDate() async {
-              final now = DateTime.now();
-
-              final pickedDate = await showDatePicker(
-                context: context,
-                initialDate: selectedDate ?? now,
-                firstDate: now,
-                lastDate: DateTime(now.year + 50),
-              );
-
-              if (pickedDate != null) {
-                setDialogState(() {
-                  selectedDate = pickedDate;
-                });
-              }
-            }
-
-            return AlertDialog(
-              title: const Text('Edit Insurance Policy'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextFormField(
-                        controller: providerController,
-                        decoration: const InputDecoration(
-                          labelText: 'Insurance Provider',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(
-                            Icons.business_outlined,
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null ||
-                              value.trim().isEmpty) {
-                            return 'Please enter insurance provider';
-                          }
-
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      DropdownButtonFormField<String>(
-                        initialValue:
-                            insuranceTypes.contains(selectedType)
-                                ? selectedType
-                                : null,
-                        decoration: const InputDecoration(
-                          labelText: 'Insurance Type',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: insuranceTypes.map((type) {
-                          return DropdownMenuItem<String>(
-                            value: type,
-                            child: Text(type),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedType = value;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Select type';
-                          }
-
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      TextFormField(
-                        controller: sumAssuredController,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Sum Assured',
-                          prefixText: '₹ ',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          final amount =
-                              double.tryParse(value?.trim() ?? '');
-
-                          if (amount == null || amount <= 0) {
-                            return 'Enter a valid amount greater than 0';
-                          }
-
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      TextFormField(
-                        controller: premiumController,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Premium',
-                          prefixText: '₹ ',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          final amount =
-                              double.tryParse(value?.trim() ?? '');
-
-                          if (amount == null || amount <= 0) {
-                            return 'Enter a valid amount greater than 0';
-                          }
-
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      InkWell(
-                        onTap: selectDate,
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Policy Renewal Date',
-                            border: OutlineInputBorder(),
-                            suffixIcon:
-                                Icon(Icons.calendar_today),
-                          ),
-                          child: Text(
-                            selectedDate == null
-                                ? 'Select renewal date'
-                                : _formatDate(
-                                    selectedDate!
-                                        .toIso8601String(),
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                  },
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (!formKey.currentState!.validate()) {
-                      return;
-                    }
-
-                    if (selectedDate == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please select the renewal date',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    final user =
-                        FirebaseAuth.instance.currentUser;
-
-                    if (user == null) {
-                      return;
-                    }
-
-                    try {
-                      await document.reference.update({
-                        'provider':
-                            providerController.text.trim(),
-                        'type': selectedType,
-                        'sumAssured': double.parse(
-                          sumAssuredController.text.trim(),
-                        ),
-                        'premium': double.parse(
-                          premiumController.text.trim(),
-                        ),
-                        'dueDate':
-                            selectedDate!.toIso8601String(),
-                      });
-
-                      if (!context.mounted) return;
-
-                      Navigator.pop(dialogContext);
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Insurance policy updated',
-                          ),
-                        ),
-                      );
-                    } catch (e) {
-                      if (!context.mounted) return;
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Failed to update policy: $e',
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
+      builder: (_) {
+        return _EditPolicyDialog(
+          initialProvider: data['provider']?.toString() ?? '',
+          initialType: data['type']?.toString(),
+          initialSumAssured: (data['sumAssured'] as num?) ?? 0,
+          initialPremium: (data['premium'] as num?) ?? 0,
+          initialDate: initialDate,
         );
       },
     );
 
-    providerController.dispose();
-    sumAssuredController.dispose();
-    premiumController.dispose();
+    // Dialog is fully closed here. Cancelled -> result is null.
+    if (result == null || !mounted) {
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return;
+    }
+
+    try {
+      await document.reference.update(result);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Insurance policy updated'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update policy: $e'),
+        ),
+      );
+    }
   }
 
   Widget _buildPolicyCard(
@@ -441,7 +475,7 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
-            _showEditDialog(context, document);
+            _showEditDialog(document);
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -462,10 +496,7 @@ class _MyInsuranceScreenState extends State<MyInsuranceScreen> {
                     IconButton(
                       tooltip: 'Edit',
                       onPressed: () {
-                        _showEditDialog(
-                          context,
-                          document,
-                        );
+                        _showEditDialog(document);
                       },
                       icon: Icon(
                         Icons.edit,

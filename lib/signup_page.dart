@@ -76,8 +76,11 @@ class _SignupPageState extends State<SignupPage> {
         message = "This email is already registered";
       } else if (e.code == 'invalid-email') {
         message = "Please enter a valid email";
-      } else if (e.code == 'weak-password') {
+            } else if (e.code == 'weak-password') {
         message = "Password is too weak";
+      } else if (e.code == 'password-does-not-meet-requirements') {
+        message =
+            "Password needs 8+ characters, 1 capital letter and 1 special character";
       }
 
       showMessage(message);

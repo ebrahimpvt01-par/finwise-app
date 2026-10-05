@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'add_income_expense_screen.dart';
 import 'app_theme.dart';
+import 'edit_transaction_dialog.dart';
 
 class MyIncomeExpensesScreen extends StatefulWidget {
   const MyIncomeExpensesScreen({super.key});
@@ -104,236 +105,44 @@ class _MyIncomeExpensesScreenState
       return;
     }
 
-    String selectedType =
-        data['type'] as String? ?? 'Income';
-
-    String selectedCategory =
-        data['category'] as String? ?? 'Other';
-
-    final amountController = TextEditingController(
-      text: (data['amount'] ?? '').toString(),
-    );
-
-    DateTime selectedDate =
-        DateTime.tryParse(
-              data['date'] as String? ?? '',
-            ) ??
-            DateTime.now();
-
-    final incomeCategories = [
-      'Salary',
-      'Business',
-      'Other',
-    ];
-
-    final expenseCategories = [
-      'Rent',
-      'Groceries',
-      'Bills',
-      'EMI',
-      'Other',
-    ];
-
-    List<String> categoriesFor(String type) {
-      return type == 'Income'
-          ? incomeCategories
-          : expenseCategories;
-    }
-
-    if (!categoriesFor(selectedType)
-        .contains(selectedCategory)) {
-      selectedCategory =
-          categoriesFor(selectedType).last;
-    }
-
-    await showDialog<void>(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Edit Transaction'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedType,
-                      decoration: const InputDecoration(
-                        labelText: 'Type',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'Income',
-                          child: Text('Income'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Expense',
-                          child: Text('Expense'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-
-                        setDialogState(() {
-                          selectedType = value;
-                          selectedCategory =
-                              value == 'Income'
-                                  ? 'Salary'
-                                  : 'Rent';
-                        });
-                      },
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedCategory,
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: categoriesFor(selectedType)
-                          .map(
-                            (category) =>
-                                DropdownMenuItem(
-                              value: category,
-                              child: Text(category),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-
-                        setDialogState(() {
-                          selectedCategory = value;
-                        });
-                      },
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    TextField(
-                      controller: amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration:
-                          const InputDecoration(
-                        labelText: 'Amount',
-                        prefixText: '₹ ',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    InkWell(
-                      onTap: () async {
-                        final pickedDate =
-                            await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-
-                        if (pickedDate != null) {
-                          setDialogState(() {
-                            selectedDate = pickedDate;
-                          });
-                        }
-                      },
-                      child: InputDecorator(
-                        decoration:
-                            const InputDecoration(
-                          labelText: 'Date',
-                          border: OutlineInputBorder(),
-                          suffixIcon: Icon(
-                            Icons.calendar_today,
-                          ),
-                        ),
-                        child: Text(
-                          '${selectedDate.day.toString().padLeft(2, '0')}/'
-                          '${selectedDate.month.toString().padLeft(2, '0')}/'
-                          '${selectedDate.year}',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                  },
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final amount = double.tryParse(
-                      amountController.text.trim(),
-                    );
-
-                    if (amount == null || amount <= 0) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text('Enter a valid amount.'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    try {
-                      await document.reference.update({
-                        'type': selectedType,
-                        'category': selectedCategory,
-                        'amount': amount,
-                        'date':
-                            selectedDate.toIso8601String(),
-                      });
-
-                      if (dialogContext.mounted) {
-                        Navigator.pop(dialogContext);
-                      }
-
-                      if (!mounted) return;
-
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text('Transaction updated.'),
-                        ),
-                      );
-                    } catch (e) {
-                      if (!mounted) return;
-
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Unable to update transaction: $e',
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
+      builder: (_) {
+        return EditTransactionDialog(
+          initialType: data['type'] as String? ?? 'Income',
+          initialCategory: data['category'] as String? ?? 'Other',
+          initialAmount: (data['amount'] ?? '').toString(),
+          initialDate:
+              DateTime.tryParse(data['date'] as String? ?? '') ??
+                  DateTime.now(),
         );
       },
     );
 
-    amountController.dispose();
+    // Dialog is fully closed here. Cancelled -> result is null.
+    if (result == null || !mounted) {
+      return;
+    }
+
+    try {
+      await document.reference.update(result);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Transaction updated.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to update transaction: $e'),
+        ),
+      );
+    }
   }
 
   Widget _buildSummaryCard(
